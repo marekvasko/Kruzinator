@@ -17,6 +17,9 @@ async def health_check() -> dict[str, str]:
 
 @app.post('/v1/datapoints', response_model=IngestDatapointResponse)
 async def ingest_datapoint(payload: IngestDatapointRequest) -> IngestDatapointResponse:
+    server_metrics = None
+    if payload.payload.kind == 'inline' and payload.payload.timeseries.format == 'raw_points':
+        server_metrics = {'points_received': len(payload.payload.timeseries.points)}
     return IngestDatapointResponse(
         datapoint_id=uuid4(),
         received_at=datetime.now(timezone.utc),
@@ -24,7 +27,5 @@ async def ingest_datapoint(payload: IngestDatapointRequest) -> IngestDatapointRe
         quality_score=0.0,
         earned_points=0,
         new_badges=[],
-        server_metrics={'points_received': len(payload.payload.timeseries.points)}
-        if payload.payload.kind == 'inline' and payload.payload.timeseries.format == 'raw_points'
-        else None,
+        server_metrics=server_metrics,
     )

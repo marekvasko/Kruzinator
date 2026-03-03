@@ -246,10 +246,6 @@ const clear = () => {
 
 const cancelStroke = () => {
   if (state.value !== 'drawing') return
-  const point = getCanvasPoint(new PointerEvent('pointercancel'), 'cancel')
-  if (point) {
-    pushPoint(point)
-  }
   metrics.value = computeMetrics(points.value)
   setState('invalid')
 }
@@ -289,7 +285,7 @@ const onPointerMove = (event: PointerEvent) => {
   if (props.maxStrokeMs && startTime.value) {
     const elapsed = performance.now() - startTime.value
     if (elapsed > props.maxStrokeMs) {
-      endStroke('cancel', event)
+      cancelStroke()
       return
     }
   }
@@ -303,8 +299,8 @@ const onPointerUp = (event: PointerEvent) => {
   endStroke('up', event)
 }
 
-const onPointerCancel = (event: PointerEvent) => {
-  endStroke('cancel', event)
+const onPointerCancel = () => {
+  cancelStroke()
 }
 
 const setStroke = (stroke: StrokePoint[]) => {

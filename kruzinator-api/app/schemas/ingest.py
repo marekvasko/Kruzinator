@@ -69,8 +69,11 @@ class StrokePoint(BaseModel):
     pressure: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     tilt_x: Optional[float] = Field(default=None, ge=-90.0, le=90.0)
     tilt_y: Optional[float] = Field(default=None, ge=-90.0, le=90.0)
-    azimuth: Optional[float] = Field(default=None, ge=0.0, le=360.0)
-    event: Optional[Literal['down', 'move', 'up', 'cancel']] = None
+    azimuth: Optional[float] = Field(default=None, ge=0.0, lt=360.0)
+    event: Optional[Literal['down', 'move', 'up', 'cancel']] = Field(
+        default=None,
+        description='Pointer event type captured for this point.',
+    )
 
 
 class RawTimeseries(BaseModel):
@@ -91,7 +94,10 @@ class PackedDeltaTimeseries(BaseModel):
     dy: Annotated[List[int], Field(min_length=1, max_length=20000)]
     dt_ms: Annotated[List[int], Field(min_length=1, max_length=20000)]
     pressure_q: Optional[Annotated[List[int], Field(min_length=1, max_length=20000)]] = None
-    units: Literal['px_scaled_1', 'px_scaled_10', 'px_scaled_100', 'norm_10000'] = 'px_scaled_10'
+    units: Literal['px_scaled_1', 'px_scaled_10', 'px_scaled_100', 'norm_10000'] = Field(
+        default='px_scaled_10',
+        description='Scaling for delta values (e.g., px_scaled_10 = 0.1px units, norm_10000 = normalized * 10000).',
+    )
 
     @model_validator(mode='after')
     def validate_lengths(self) -> 'PackedDeltaTimeseries':
