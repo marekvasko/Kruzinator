@@ -35,6 +35,9 @@ services:
         UV_NO_DEV: 0
         UV_COMPILE_BYTECODE: 1
     # ...
+    depends_on:
+      kruzinator-postgres:
+        condition: service_healthy
     develop:
       # Create a `watch` configuration to update the app
       #
@@ -71,6 +74,12 @@ services:
       - POSTGRES_PASSWORD=postgres
     volumes:
       - ./data/postgres:/var/lib/postgresql/
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d kruzinator"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
   kruzinator-seaweedfs:
     image: "chrislusf/seaweedfs:4.15_large_disk"
     entrypoint: "weed"
