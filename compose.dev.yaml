@@ -1,0 +1,70 @@
+services:
+  image-compass-capture-frontend-dev:
+    build:
+      context: image-compass-capture-frontend
+      dockerfile: Dockerfile.dev
+    # ...
+    develop:
+      # Create a `watch` configuration to update the app
+      #
+      watch:
+        # Sync the working directory with the `/app` directory in the container
+        - action: sync
+          path: image-compass-capture-frontend/
+          target: /app
+          # Exclude the project dependencies from being synced
+          ignore:
+            - node_modules/
+
+        # Rebuild the image on changes to the `package.json` or `package-lock.json` files
+        - action: rebuild
+          path: image-compass-capture-frontend/package.json
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.image-compass-capture-frontend-dev.rule=Host(`dev.image-compass.capturemyhand.com`)
+      - traefik.http.routers.image-compass-capture-frontend-dev.entrypoints=websecure
+      - traefik.http.routers.image-compass-capture-frontend-dev.tls.certresolver=tlschallenge
+    networks:
+      - web
+
+  image-compass-capture-backend-dev:
+    build:
+      context: image-compass-capture-backend
+      dockerfile: Dockerfile
+      args:
+        UV_NO_DEV: 0
+        UV_COMPILE_BYTECODE: 1
+    # ...
+    develop:
+      # Create a `watch` configuration to update the app
+      #
+      watch:
+        # Sync the working directory with the `/app` directory in the container
+        - action: sync
+          path: image-compass-capture-backend/
+          target: /app
+          # Exclude the project virtual environment
+          ignore:
+            - image-compass-capture-backend/.venv/
+
+        # Rebuild the image on changes to the `pyproject.toml`
+        - action: rebuild
+          path: image-compass-capture-backend/pyproject.toml
+    volumes:
+      - ./.data_dev_sessions:/data/sessions
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.image-compass-capture-backend-dev.rule=Host(`dev.image-compass.capturemyhand.com`) && (PathPrefix(`/api`) || Path(`/openapi.json`) || Path(`/docs`) || Path(`/redoc`))
+      - traefik.http.routers.image-compass-capture-backend-dev.entrypoints=websecure
+      - traefik.http.routers.image-compass-capture-backend-dev.tls.certresolver=tlschallenge
+      - traefik.http.services.image-compass-capture-backend-dev.loadbalancer.server.port=8000
+    environment:
+      - PORT=8000
+      - SESSION_DATA_PATH=/data/sessions
+    networks:
+      - web
+
+networks:
+  web:
+    external: true
+      

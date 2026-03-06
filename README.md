@@ -1,208 +1,157 @@
-# Circle Data Collection App (Monorepo)
+# Kruzinator: Circle Gesture Identity (Data Collection)
 
-A monorepo for a mobile-first web app that collects **circle-drawing gestures** on a touchscreen.  
-Each drawing produces a **single datapoint** consisting of:
+Kruzinator is a mobile-first web app that collects **circle-drawing gestures** and stores them as a **behavioral signature dataset** tied to a user.
 
-- A **time-series** captured while the user draws (pointer trajectory: `x, y, t` + optional pressure/tilt)
-- Optional **preview** (PNG) for QA/admin review
-- Derived **client-side metrics** (duration, path length, closure distance, quick circle-fit hint)
+The core idea: **how** a person draws a circle (timing, curvature, micro-corrections, pressure patterns, etc.) can be distinctive enough to support later identity modeling. For now, the focus is on **managing users and their circle samples** (capture, storage, review, export).
 
-Backend processes and validates submissions, stores raw payloads + normalized features, and powers **rewards** and **leaderboards**.
+This repository’s README is written as a product/spec description that can be used later to implement the app.
 
 ---
 
-## Repo Structure
-- `/`
-  - `kruzinator-vue/` # Vue 3 + TypeScript client (PWA-ready)
-  - `kruzinator-api/` # FastAPI (Python 3.12) backend
+## Goal
 
+Collect and manage high-quality circle gesture samples in a way that supports future identity modeling.
 
-## Tech Stack
+- Create and manage **users** (pseudonymous IDs).
+- Capture and store **multiple circle samples per user**.
+- Compute and store **derived features** (optional, reproducible) alongside raw samples.
+- Provide basic **review/admin tooling** (spot-check, search/filter by metadata/tags, export).
+- Support **data governance** (retention, deletion by user).
 
-### Frontend (`apps/web`)
-- **Vue 3** + **Vite** + **TypeScript**
-- **Pinia** (state), **Vue Router**
-- UI: **Quasar** (recommended) or other component framework
-- Pointer input capture on canvas (`pointerdown/move/up/cancel`)
-- Sampling + optional smoothing + client-side validation
-- Offline queue (optional): IndexedDB + background sync (PWA)
-
-### Backend (`apps/api`)
-- **Python 3.12**
-- **FastAPI** + **Pydantic v2** (typed request/response models)
-- **PostgreSQL** (primary storage)
-- **Redis** (leaderboards cache / rate limits)
-- **S3-compatible storage** (MinIO in dev) for raw compressed payloads + previews
-- Background tasks: Celery/RQ/ARQ (optional; e.g., PNG preview rendering, aggregations)
-- Tests: `pytest` (+ async helpers)
+This app is primarily a **data collection + user/sample management** pipeline.
 
 ---
 
-## Core Concepts
+## What the user does (UX flow)
 
-### Datapoint
-A datapoint is a single circle-drawing attempt. It includes:
+### 1) Consent and explanation
+Before any capture, the app explains:
 
-- **Metadata**: app version, device/platform info, canvas size, DPR, session/task ids
-- **Payload**:
-  - Inline time-series (MVP): JSON list of points
-  - Packed and compressed (production): packed deltas → MessagePack → gzip → base64
-- **Quality** (server-side): accepted/rejected + quality score (0..1)
-- **Rewards**: points and badges issued for accepted datapoints
+- What is being collected (gesture telemetry)
+- What it’s used for (creating a dataset of circle-drawing signatures)
+- Retention rules and deletion options
 
-### Time-Series
-Captured as a sequence of points:
+### 2) Create/select a user
+The user creates a new profile (or selects an existing one).
 
-- `x`, `y` in canvas coordinates (DPR-aware)
-- `tMs` relative to stroke start
-- optional pointer channels: pressure, tilt, azimuth
+- The app generates a **pseudonymous user identifier** (or links to an auth account, depending on product decisions).
 
-Sampling modes supported by the canvas component:
-- `raw` (every event)
-- `time` (e.g., 60 Hz)
-- `distance` (only store if moved by ≥ N px)
-- `hybrid` (recommended)
+### 3) Capture circle samples
+The user completes a guided set of circle drawings.
 
----
+- The user draws **N circles** across prompts (speed changes, size changes, clockwise/counterclockwise).
+- Each attempt is stored as a separate datapoint linked to the current user.
 
-## Frontend: `CircleCanvas.vue` Interface
+### 4) Review (optional)
+The user (or an admin) can review recent samples:
 
-`CircleCanvas.vue` is a reusable “headless” drawing component that:
-- Captures pointer time-series
-- Applies sampling and optional smoothing
-- Computes basic metrics (client-side hint)
-- Validates the stroke (min points, duration, closure threshold)
-- Exposes an imperative API for export/clear/replay
-
-### Props (high-level)
-- Size: `width`, `height`, optional `dpr`
-- Interaction: `disabled`, `readOnly`, `capturePointer`
-- Data capture: `sampling`, `smoothing`
-- Validation: `validation`
-- UX: `showGuide`, `showLivePath`, `showDebug`
-- Replay: `initialStroke`
-
-### Emits
-- `stroke:start`, `stroke:end`, `stroke:validated`
-- `state` changes: `idle | drawing | completed | invalid | disabled`
-- `cleared`, `error`
-
-### Exposed API
-Access via `ref` from the parent page:
-- `clear()`, `cancelStroke()`
-- `validate()`
-- `exportPayload({ format, includePreview, normalize })`
-- `getStroke()`, `getMetrics()`
-- `setStroke(points)` (replay)
-
-> The backend is the source-of-truth for validation and scoring; client validation is mainly for UX.
+- Inspect samples and metadata (e.g., device/prompt context)
+- Add notes/tags for QA or research (manual)
+- Re-collect samples if the drawing is unusable for the intended dataset
 
 ---
 
-## Backend: API Overview
+## What is captured (single datapoint)
 
-### Auth (minimal)
-- Anonymous-first auth (device-based token), with optional upgrade to email later.
+Each drawing attempt produces one **datapoint** with:
 
-### Ingest
-- `POST /v1/datapoints`
-  - Accepts `metadata` + `payload`
-  - Returns: `datapoint_id`, `accepted`, `quality_score`, `earned_points`, `new_badges[]`
+### A) Metadata (context)
+- App version
+- Device and platform info (coarse)
+- Canvas size, device pixel ratio (DPR)
+- Input type (finger/stylus/mouse) when available
+- Session/task identifiers (capture prompt type; collection protocol version)
 
-### Rewards
-- `GET /v1/rewards/me` for user stats and badges
+### B) Raw time-series (gesture telemetry)
+A sequence of points sampled while the user draws:
 
-### Leaderboards
-- `GET /v1/leaderboards/daily`
-- `GET /v1/leaderboards/weekly`
-- `GET /v1/leaderboards/all-time`
+- `x`, `y`: canvas coordinates (DPR-aware)
+- `tMs`: milliseconds since stroke start
+- Optional pointer channels when supported: pressure, tilt, azimuth
+
+Sampling may be:
+
+- `raw`: every input event
+- `time`: target Hz (e.g., 60 Hz)
+- `distance`: minimum movement threshold
+- `hybrid`: time + minimum distance (typical default)
+
+### C) Derived features (computed from raw)
+Derived values computed from raw samples (for analysis and future modeling), for example:
+
+- Duration, path length, average/peak speed
+- Closure distance (distance between start/end)
+- Curvature / turning-angle statistics
+- Resampling to a fixed number of points
+- Normalized geometry (translate/scale/rotate)
+- Simple circle-fit residual error (as a hint)
 
 ---
 
-## Data Storage
+## Data labeling
 
-- **Postgres**: users, sessions, datapoint records (accepted/score), features, reward events
-- **Object Storage (S3/MinIO)**:
-  - raw payload blobs (gz+base64 decoded to bytes)
-  - optional PNG previews
-- **Redis**:
-  - rate-limits / antifraud throttling
-  - leaderboard cached rankings (sorted sets)
+Labeling strategy is intentionally simple:
+
+- Each datapoint is labeled with the **user ID** (ground truth) and a **capture label** (e.g., prompt type, protocol step).
+- Additional labels can be added later (e.g., handedness, stylus usage) but are not required for MVP.
 
 ---
 
-## Getting Started (Dev)
+## No quality gates
 
-### Prerequisites
-- Node.js (LTS)
-- Python 3.12
-- Docker + Docker Compose
+The app does not automatically accept/reject strokes or compute quality scores. Any filtering is a downstream, analysis-time decision.
 
-### 1) Start infrastructure
-From repo root:
+---
 
-```bash
-docker compose -f docker-compose.yml up -d
-```
+## Privacy and safety (important)
 
-This should start:
-- Postgres
-- Redis
-- MinIO (S3-compatible)
+Circle gesture telemetry is potentially **sensitive** (behavioral biometric-like). The product should:
 
+- Avoid collecting direct PII unless explicitly needed.
+- Make consent explicit and revocable.
+- Provide a clear retention policy and deletion path.
+- Treat raw telemetry and previews as sensitive (access controls, encryption, audit logs).
+- Separate “identity model” from “identity account” where possible (pseudonymous user IDs).
 
-### 2) Backend
-1. `cd kruzinator-api`
-2. `python -m venv .venv`
-3. `source .venv/bin/activate`
-4. `pip install -r requirements.txt`
-5. `uvicorn app.main:app --reload`
+---
 
-### 3) Frontend
-1. `cd kruzinator-vue`
-2. `npm install`
-3. `npm run dev`
+## System responsibilities (implementation-agnostic)
 
+Even if the implementation changes, the system should support:
 
-### Environment Variables (Example)
+- **Capture**: reliable pointer/stylus capture on mobile browsers
+- **Normalize**: consistent coordinate system and time base
+- **Store**: users + raw time-series + derived features + labels
+- **Review**: basic admin/user review of samples and metadata
+- **Export**: dataset export for ML training (e.g., JSONL/Parquet)
+- **Govern**: retention policies and deletion by user
 
-#### Backend (`kruzinator-api/.env`)
+---
 
-- `DATABASE_URL=postgresql+asyncpg://...`
-- `REDIS_URL=redis://...`
-- `S3_ENDPOINT_URL=http://localhost:9000`
-- `S3_ACCESS_KEY=...`
-- `S3_SECRET_KEY=...`
-- `S3_BUCKET=circles`
-- `JWT_SECRET=...`
+## API shape (conceptual)
 
-#### Frontend (`kruzinator-vue/.env`)
-- `VITE_API_BASE_URL=http://localhost:8000`
+This is a conceptual API outline (exact routes can change). The emphasis is on **user and sample management**:
 
-### Conventions & Quality
+- `POST /v1/users` → create a pseudonymous user
+- `GET /v1/users/{user_id}` → fetch user summary
+- `DELETE /v1/users/{user_id}` → delete user and associated data (subject to retention policy)
+- `POST /v1/sessions` → start a capture session (protocol version, prompt plan)
+- `POST /v1/datapoints` → upload a single stroke datapoint (linked to `user_id`)
+- `GET /v1/users/{user_id}/datapoints` → list samples and metadata
+- `GET /v1/datapoints/{datapoint_id}` → fetch sample metadata/features
+- `GET /v1/datapoints/{datapoint_id}/raw` → fetch raw payload (access-controlled)
+- `POST /v1/datapoints/{datapoint_id}/tags` → add manual tags/notes (optional)
+- `POST /v1/exports` → request a dataset export (scoped by protocol/date/user cohort)
 
-#### Python:
-- typed models via Pydantic v2
-- strict linting/formatting (recommended): ruff + black
-- type checks: pyright
+In all cases, the backend remains the source-of-truth for storage and data governance.
 
-#### Frontend:
-- TypeScript types for all payloads
-- keep canvas hot-path fast (avoid heavy emits per point)
-- sampling defaults: hybrid (≈60Hz + min distance)
+---
 
-#### Notes on Privacy & Safety
-- Prefer anonymous identifiers.
-- Avoid collecting personally identifying information unless required.
-- Treat raw gesture data as sensitive (behavioral biometric–like); secure storage and access.
-- Provide clear user consent and data retention policy in the UI.
+## Notes for future implementation
 
-#### Next Steps
-
-Implement packed delta encoding + gzip base64 ingestion for production scale.
-
-Add antifraud heuristics (rate limits, duplicate trajectory hashing).
-
-Add admin review tooling (sample accepted/rejected + preview rendering).
-
-Export pipeline for ML training (Parquet/JSONL).
+- Prefer a packed/compressed payload format for production scale (delta encoding → MessagePack → gzip → base64).
+- Add antifraud heuristics (rate limits, duplicate trajectory detection).
+- Maintain a clear separation between:
+  - raw data (for reproducibility)
+  - normalized features (for model speed)
+  - optional tags/notes (for manual review)
