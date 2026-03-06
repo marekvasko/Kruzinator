@@ -1,7 +1,7 @@
 services:
-  image-compass-capture-frontend-dev:
+  kruzinator-vue-dev:
     build:
-      context: image-compass-capture-frontend
+      context: kruzinator-vue
       dockerfile: Dockerfile.dev
     # ...
     develop:
@@ -10,7 +10,7 @@ services:
       watch:
         # Sync the working directory with the `/app` directory in the container
         - action: sync
-          path: image-compass-capture-frontend/
+          path: kruzinator-vue/
           target: /app
           # Exclude the project dependencies from being synced
           ignore:
@@ -18,18 +18,18 @@ services:
 
         # Rebuild the image on changes to the `package.json` or `package-lock.json` files
         - action: rebuild
-          path: image-compass-capture-frontend/package.json
+          path: kruzinator-vue/package.json
     labels:
       - traefik.enable=true
-      - traefik.http.routers.image-compass-capture-frontend-dev.rule=Host(`dev.image-compass.capturemyhand.com`)
-      - traefik.http.routers.image-compass-capture-frontend-dev.entrypoints=websecure
-      - traefik.http.routers.image-compass-capture-frontend-dev.tls.certresolver=tlschallenge
+      - traefik.http.routers.kruzinator-vue-dev.rule=Host(`dev.kruzinator.capturemyhand.com`)
+      - traefik.http.routers.kruzinator-vue-dev.entrypoints=websecure
+      - traefik.http.routers.kruzinator-vue-dev.tls.certresolver=tlschallenge
     networks:
       - web
 
-  image-compass-capture-backend-dev:
+  kruzinator-api-dev:
     build:
-      context: image-compass-capture-backend
+      context: kruzinator-api
       dockerfile: Dockerfile
       args:
         UV_NO_DEV: 0
@@ -41,28 +41,37 @@ services:
       watch:
         # Sync the working directory with the `/app` directory in the container
         - action: sync
-          path: image-compass-capture-backend/
+          path: kruzinator-api/
           target: /app
           # Exclude the project virtual environment
           ignore:
-            - image-compass-capture-backend/.venv/
+            - kruzinator-api/.venv/
 
         # Rebuild the image on changes to the `pyproject.toml`
         - action: rebuild
-          path: image-compass-capture-backend/pyproject.toml
+          path: kruzinator-api/pyproject.toml
     volumes:
       - ./.data_dev_sessions:/data/sessions
     labels:
       - traefik.enable=true
-      - traefik.http.routers.image-compass-capture-backend-dev.rule=Host(`dev.image-compass.capturemyhand.com`) && (PathPrefix(`/api`) || Path(`/openapi.json`) || Path(`/docs`) || Path(`/redoc`))
-      - traefik.http.routers.image-compass-capture-backend-dev.entrypoints=websecure
-      - traefik.http.routers.image-compass-capture-backend-dev.tls.certresolver=tlschallenge
-      - traefik.http.services.image-compass-capture-backend-dev.loadbalancer.server.port=8000
+      - traefik.http.routers.kruzinator-api-dev.rule=Host(`dev.kruzinator.capturemyhand.com`) && (PathPrefix(`/api`) || Path(`/openapi.json`) || Path(`/docs`) || Path(`/redoc`))
+      - traefik.http.routers.kruzinator-api-dev.entrypoints=websecure
+      - traefik.http.routers.kruzinator-api-dev.tls.certresolver=tlschallenge
+      - traefik.http.services.kruzinator-api-dev.loadbalancer.server.port=8000
     environment:
       - PORT=8000
       - SESSION_DATA_PATH=/data/sessions
     networks:
       - web
+
+  kruzinator-postgres:
+    image: postgres:18
+    environment:
+      - POSTGRES_DB=kruzinator
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - ./data:/var/lib/postgresql/data
 
 networks:
   web:

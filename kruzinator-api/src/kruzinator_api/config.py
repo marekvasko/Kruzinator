@@ -18,10 +18,10 @@ class Settings(BaseSettings):
     log_level: str = "info"
 
     host: str = "0.0.0.0"
-    port: int = 8000
+    port: int = 80
 
     database_url: str = Field(
-        default="postgresql+asyncpg://postgres:postgres@localhost:5432/kruzinator",
+        default="postgresql+asyncpg://postgres:postgres@kruzinator-postgres:5432/kruzinator",
         validation_alias="DATABASE_URL",
     )
 

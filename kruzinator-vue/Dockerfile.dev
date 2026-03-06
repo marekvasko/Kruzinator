@@ -1,0 +1,11 @@
+FROM node:lts
+# Copy the project into the image
+COPY package*.json /app/
+WORKDIR /app
+# Install dependencies
+RUN npm install
+# Copy the rest of the application code
+COPY --exclude=node_modules . /app/
+# Run the development server
+EXPOSE 3000
+CMD [ "npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3000" ]
