@@ -9,4 +9,5 @@ ENV UV_COMPILE_BYTECODE=${UV_COMPILE_BYTECODE}
 # Sync the project into a new environment, asserting the lockfile is up to date
 WORKDIR /app
 RUN uv sync --locked
-CMD ["uv", "run", "image-compass-capture-backend"]
+CMD ["uv", "run", "kruzinator-api"]
+

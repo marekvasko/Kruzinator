@@ -132,16 +132,16 @@ Even if the implementation changes, the system should support:
 
 This is a conceptual API outline (exact routes can change). The emphasis is on **user and sample management**:
 
-- `POST /v1/users` → create a pseudonymous user
-- `GET /v1/users/{user_id}` → fetch user summary
-- `DELETE /v1/users/{user_id}` → delete user and associated data (subject to retention policy)
-- `POST /v1/sessions` → start a capture session (protocol version, prompt plan)
-- `POST /v1/datapoints` → upload a single stroke datapoint (linked to `user_id`)
-- `GET /v1/users/{user_id}/datapoints` → list samples and metadata
-- `GET /v1/datapoints/{datapoint_id}` → fetch sample metadata/features
-- `GET /v1/datapoints/{datapoint_id}/raw` → fetch raw payload (access-controlled)
-- `POST /v1/datapoints/{datapoint_id}/tags` → add manual tags/notes (optional)
-- `POST /v1/exports` → request a dataset export (scoped by protocol/date/user cohort)
+- `POST /api/v1/users` → create a pseudonymous user
+- `GET /api/v1/users/{user_id}` → fetch user summary
+- `DELETE /api/v1/users/{user_id}` → delete user and associated data (subject to retention policy)
+- `POST /api/v1/sessions` → start a capture session (protocol version, prompt plan)
+- `POST /api/v1/datapoints` → upload a single stroke datapoint (linked to `user_id`)
+- `GET /api/v1/users/{user_id}/datapoints` → list samples and metadata
+- `GET /api/v1/datapoints/{datapoint_id}` → fetch sample metadata/features
+- `GET /api/v1/datapoints/{datapoint_id}/raw` → fetch raw payload (access-controlled)
+- `POST /api/v1/datapoints/{datapoint_id}/tags` → add manual tags/notes (optional)
+- `POST /api/v1/exports` → request a dataset export (scoped by protocol/date/user cohort)
 
 In all cases, the backend remains the source-of-truth for storage and data governance.
 

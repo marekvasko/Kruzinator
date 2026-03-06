@@ -1,2 +1,4 @@
-def main() -> None:
-    print("Hello from kruzinator-api!")
+from .app import app
+from .cli import main
+
+__all__ = ["app", "main"]

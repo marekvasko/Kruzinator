@@ -7,7 +7,20 @@ authors = [
     { name = "Marek Vaško", email = "ivasko@fit.vutbr.cz" }
 ]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "aiofiles>=25.1.0",
+    "alembic>=1.18.4",
+    "asyncpg>=0.31.0",
+    "fastapi[standard-no-cloud-cli]>=0.135.1",
+    "joserfc>=1.6.3",
+    "pwdlib[argon2]>=0.3.0",
+    "pydantic-settings>=2.13.1",
+    "pydantic[email]>=2.12.5",
+    "python-multipart>=0.0.22",
+    "redis>=7.2.1",
+    "sqlalchemy>=2.0.48",
+    "uvicorn>=0.41.0",
+]
 
 [project.scripts]
 kruzinator-api = "kruzinator_api:main"
