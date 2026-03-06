@@ -50,8 +50,6 @@ services:
         # Rebuild the image on changes to the `pyproject.toml`
         - action: rebuild
           path: kruzinator-api/pyproject.toml
-    volumes:
-      - ./.data_dev_sessions:/data/sessions
     labels:
       - traefik.enable=true
       - traefik.http.routers.kruzinator-api-dev.rule=Host(`dev.kruzinator.capturemyhand.com`) && (PathPrefix(`/api`) || Path(`/openapi.json`) || Path(`/docs`) || Path(`/redoc`))
@@ -63,6 +61,7 @@ services:
       - SESSION_DATA_PATH=/data/sessions
     networks:
       - web
+      - default
 
   kruzinator-postgres:
     image: postgres:18
@@ -71,7 +70,37 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
     volumes:
-      - ./data:/var/lib/postgresql/data
+      - ./data/postgres:/var/lib/postgresql/
+  kruzinator-seaweedfs:
+    image: "chrislusf/seaweedfs:4.15_large_disk"
+    entrypoint: "weed"
+    command: mini -dir=/data -ip=127.0.0.1 -ip.bind=0.0.0.0
+    environment:
+      AWS_ACCESS_KEY_ID: seaweedfs
+      AWS_SECRET_ACCESS_KEY: seaweedfs
+    healthcheck:
+      test: [
+          "CMD-SHELL",
+          # Manually override any http_proxy envvar that might be set, because
+          # this wget does not support no_proxy. See:
+          # https://github.com/getsentry/self-hosted/issues/1537
+          "http_proxy='' wget -q -O- http://kruzinator-seaweedfs:8080/healthz http://kruzinator-seaweedfs:9333/cluster/healthz http://kruzinator-seaweedfs:8333/healthz || exit 1",
+      ]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 60s
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.kruzinator-filer-seaweedfs.rule=Host(`dev.filer.kruzinator.capturemyhand.com`)
+      - traefik.http.routers.kruzinator-filer-seaweedfs.entrypoints=websecure
+      - traefik.http.routers.kruzinator-filer-seaweedfs.tls.certresolver=tlschallenge
+      - traefik.http.services.kruzinator-filer-seaweedfs.loadbalancer.server.port=8888
+    volumes:
+      - ./data/seaweedfs:/data
+    networks:
+      - web
+      - default
 
 networks:
   web:
