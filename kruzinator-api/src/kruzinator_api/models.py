@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -16,28 +16,22 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    anonnymous_name: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
+    hashed_password: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    refresh_token_jti: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    is_active: Mapped[bool] = mapped_column(default=True)
+    is_admin: Mapped[bool] = mapped_column(default=False)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     datapoints: Mapped[list[Datapoint]] = relationship(back_populates="user", cascade="all, delete-orphan")
-    sessions: Mapped[list[Session]] = relationship(back_populates="user", cascade="all, delete-orphan")
-
-
-class Session(Base):
-    __tablename__ = "sessions"
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=True,
+    reward_events: Mapped[list[RewardEvent]] = relationship(
+        back_populates="user",
+        order_by="RewardEvent.created_at.asc()",
+        passive_deletes=True,
     )
-    protocol_version: Mapped[str] = mapped_column(String(64), default="v1")
-    prompt_plan: Mapped[dict] = mapped_column(JSONB, default=dict)
-    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-    user: Mapped[User | None] = relationship(back_populates="sessions")
-    datapoints: Mapped[list[Datapoint]] = relationship(back_populates="session")
 
 
 class Datapoint(Base):
@@ -45,11 +39,6 @@ class Datapoint(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
-    session_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("sessions.id", ondelete="SET NULL"),
-        nullable=True,
-    )
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -61,11 +50,15 @@ class Datapoint(Base):
     features: Mapped[dict] = mapped_column(JSONB, default=dict)
 
     user: Mapped[User] = relationship(back_populates="datapoints")
-    session: Mapped[Session | None] = relationship(back_populates="datapoints")
     tags: Mapped[list[DatapointTag]] = relationship(
         back_populates="datapoint",
         cascade="all, delete-orphan",
         order_by="DatapointTag.created_at.asc()",
+    )
+    reward_events: Mapped[list[RewardEvent]] = relationship(
+        back_populates="datapoint",
+        order_by="RewardEvent.created_at.asc()",
+        passive_deletes=True,
     )
 
 
@@ -87,3 +80,27 @@ class DatapointTag(Base):
     note: Mapped[str | None] = mapped_column(Text(), nullable=True)
 
     datapoint: Mapped[Datapoint] = relationship(back_populates="tags")
+
+
+class RewardEvent(Base):
+    __tablename__ = "reward_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
+    datapoint_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("datapoints.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    points: Mapped[int] = mapped_column(Integer, nullable=False)
+    reason: Mapped[str] = mapped_column(String(64), nullable=False)
+    details: Mapped[dict] = mapped_column(JSONB, default=dict)
+
+    user: Mapped[User] = relationship(back_populates="reward_events")
+    datapoint: Mapped[Datapoint | None] = relationship(back_populates="reward_events")
+
+
+Index("ix_reward_events_user_created", RewardEvent.user_id, RewardEvent.created_at)

@@ -46,8 +46,8 @@ def main() -> None:
     settings = get_settings()
     uvicorn.run(
         "kruzinator_api.app:app",
-        host=settings.host,
-        port=settings.port,
+        host=settings.uvicorn.host,
+        port=settings.uvicorn.port,
         log_level=settings.log_level,
-        reload=settings.environment == "development",
+        reload=settings.uvicorn.reload
     )

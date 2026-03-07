@@ -3,33 +3,54 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, PostgresDsn, BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class UvicornSettings(BaseModel):
+    host: str
+    port: int
+    reload: bool
+
+
+class AuthSettings(BaseModel):
+    login_expire_seconds: int
+    jwt_private_key: str
+    jwt_audience: str
+    jwt_issuer: str
+
+
+class CORSSettings(BaseModel):
+    allow_origins: list[str] = ["*"]
+    allow_credentials: bool = True
+    allow_methods: list[str] = ["*"]
+    allow_headers: list[str] = ["*"]
+
+
+class RewardsSettings(BaseModel):
+    points_per_datapoint: int = 1
+    points_per_level: int = 100
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
+        env_prefix='kruzinator__',
+        env_nested_delimiter='__',
         extra="ignore",
+        case_sensitive=False,
     )
+    uvicorn: UvicornSettings
+    auth: AuthSettings
+    cors: CORSSettings = Field(default_factory=CORSSettings)
+    rewards: RewardsSettings = Field(default_factory=RewardsSettings)
 
     environment: Literal["development", "production", "test"] = "development"
-    log_level: str = "info"
-
-    host: str = "0.0.0.0"
-    port: int = 80
-
-    database_url: str = Field(
-        default="postgresql+asyncpg://postgres:postgres@kruzinator-postgres:5432/kruzinator",
-        validation_alias="DATABASE_URL",
-    )
-
-    cors_allow_origins: list[str] = Field(default_factory=lambda: ["*"])
-
+    log_level: Literal["debug", "info", "warning", "error"] = "info"
+    postgres_url: PostgresDsn
     exports_max_rows: int = 50_000
+
 
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    return Settings() # type: ignore

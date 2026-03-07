@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 
 class Point(BaseModel):
@@ -18,8 +18,32 @@ class Point(BaseModel):
     azimuth: float | None = None
 
 
-class UserCreate(BaseModel):
-    pass
+class UserRequest(BaseModel):
+    anonnymous_name: str
+    password: str | None = None
+
+
+class UserResponse(BaseModel):
+    id: uuid.UUID
+    username: str = Field(
+        validation_alias=AliasChoices("username", "anonnymous_name"),
+        serialization_alias="username",
+    )
+    is_active: bool = True
+    is_admin: bool = False
+
+
+class User(UserResponse):
+    hashed_password: str | None = None
+    refresh_token_jti: uuid.UUID | None = None
+    is_active: bool = True
+    is_admin: bool = False
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    refresh_token: str | None = None
 
 
 class UserOut(BaseModel):
@@ -27,46 +51,63 @@ class UserOut(BaseModel):
     created_at: datetime
 
 
-class UserSummary(BaseModel):
-    id: uuid.UUID
-    created_at: datetime
-    datapoints_count: int
-    sessions_count: int
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
 
 
-class SessionCreate(BaseModel):
-    user_id: uuid.UUID | None = None
-    protocol_version: str = "v1"
-    prompt_plan: dict[str, Any] = Field(default_factory=dict)
+Hand = Literal["left", "right", "unknown"]
+Direction = Literal["clockwise", "counterclockwise", "unknown"]
+Tool = Literal["index", "thumb", "stylus", "mouse", "unknown"]
+InputType = Literal["touch", "pen", "mouse", "unknown"]
+SamplingMode = Literal["raw", "time", "distance", "hybrid"]
 
 
-class SessionOut(BaseModel):
-    id: uuid.UUID
-    user_id: uuid.UUID | None
-    protocol_version: str
-    prompt_plan: dict[str, Any]
-    started_at: datetime
+class CanvasInfo(BaseModel):
+    width: int | None = None
+    height: int | None = None
+    dpr: float | None = None
+
+
+class DeviceInfo(BaseModel):
+    platform: str | None = None
+    user_agent: str | None = None
+    language: str | None = None
+
+
+class DatapointMetadata(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    app_version: str | None = None
+    input_type: InputType | None = None
+    sampling: SamplingMode | None = None
+
+    hand: Hand | None = None
+    tool: Tool | None = None
+    direction: Direction | None = None
+
+    canvas: CanvasInfo | None = None
+    device: DeviceInfo | None = None
+
+    # Flexible per-protocol labels; this is where we expect things like
+    # {"hand": "right", "direction": "clockwise"} if you prefer a flat label bag.
+    labels: dict[str, Any] = Field(default_factory=dict)
 
 
 class DatapointCreate(BaseModel):
-    user_id: uuid.UUID
-    session_id: uuid.UUID | None = None
-
     capture_label: str = ""
     protocol_version: str = "v1"
 
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    metadata: DatapointMetadata = Field(default_factory=DatapointMetadata)
     points: list[Point]
 
 
 class DatapointOut(BaseModel):
     id: uuid.UUID
-    user_id: uuid.UUID
-    session_id: uuid.UUID | None
     created_at: datetime
     capture_label: str
     protocol_version: str
-    metadata: dict[str, Any]
+    metadata: DatapointMetadata
     features: dict[str, Any]
 
 
@@ -80,7 +121,7 @@ class DatapointListItem(BaseModel):
     created_at: datetime
     capture_label: str
     protocol_version: str
-    metadata: dict[str, Any]
+    metadata: DatapointMetadata
     features: dict[str, Any]
 
 
@@ -98,7 +139,23 @@ class TagOut(BaseModel):
 
 
 class ExportRequest(BaseModel):
-    user_ids: list[uuid.UUID] | None = None
     protocol_version: str | None = None
     created_from: datetime | None = None
     created_to: datetime | None = None
+    labels: dict[str, Any] | None = None
+
+
+class RewardEventOut(BaseModel):
+    id: uuid.UUID
+    created_at: datetime
+    points: int
+    reason: str
+    datapoint_id: uuid.UUID | None = None
+    details: dict[str, Any] = Field(default_factory=dict)
+
+
+class RewardSummaryOut(BaseModel):
+    total_points: int
+    level: int
+    points_per_level: int
+    next_level_at: int

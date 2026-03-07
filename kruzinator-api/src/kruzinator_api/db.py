@@ -15,7 +15,7 @@ from .config import get_settings
 def create_engine() -> AsyncEngine:
     settings = get_settings()
     return create_async_engine(
-        settings.database_url,
+        settings.postgres_url.unicode_string(),
         pool_pre_ping=True,
     )
 

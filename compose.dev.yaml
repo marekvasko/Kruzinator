@@ -55,13 +55,14 @@ services:
           path: kruzinator-api/pyproject.toml
     labels:
       - traefik.enable=true
-      - traefik.http.routers.kruzinator-api-dev.rule=Host(`dev.kruzinator.capturemyhand.com`) && (PathPrefix(`/api`) || Path(`/openapi.json`) || Path(`/docs`) || Path(`/redoc`))
+      - traefik.http.routers.kruzinator-api-dev.rule=Host(`dev.kruzinator.capturemyhand.com`) && (PathPrefix(`/api`) || PathPrefix(`/.well-known`) || Path(`/openapi.json`) || Path(`/docs`) || Path(`/redoc`))
       - traefik.http.routers.kruzinator-api-dev.entrypoints=websecure
       - traefik.http.routers.kruzinator-api-dev.tls.certresolver=tlschallenge
       - traefik.http.services.kruzinator-api-dev.loadbalancer.server.port=8000
     environment:
       - PORT=8000
       - SESSION_DATA_PATH=/data/sessions
+    env_file: .env
     networks:
       - web
       - default
@@ -87,24 +88,22 @@ services:
     environment:
       AWS_ACCESS_KEY_ID: seaweedfs
       AWS_SECRET_ACCESS_KEY: seaweedfs
-    healthcheck:
-      test: [
-          "CMD-SHELL",
-          # Manually override any http_proxy envvar that might be set, because
-          # this wget does not support no_proxy. See:
-          # https://github.com/getsentry/self-hosted/issues/1537
-          "http_proxy='' wget -q -O- http://kruzinator-seaweedfs:8080/healthz http://kruzinator-seaweedfs:9333/cluster/healthz http://kruzinator-seaweedfs:8333/healthz || exit 1",
-      ]
-      interval: 30s
-      timeout: 20s
-      retries: 5
-      start_period: 60s
     labels:
       - traefik.enable=true
-      - traefik.http.routers.kruzinator-filer-seaweedfs.rule=Host(`dev.filer.kruzinator.capturemyhand.com`)
-      - traefik.http.routers.kruzinator-filer-seaweedfs.entrypoints=websecure
-      - traefik.http.routers.kruzinator-filer-seaweedfs.tls.certresolver=tlschallenge
-      - traefik.http.services.kruzinator-filer-seaweedfs.loadbalancer.server.port=8888
+      
+      - traefik.http.routers.kruzinator-seaweedfs-master.rule=Host(`seaweedfs-master.dev.kruzinator.capturemyhand.com`)
+      - traefik.http.routers.kruzinator-seaweedfs-master.entrypoints=websecure
+      - traefik.http.routers.kruzinator-seaweedfs-master.tls.certresolver=tlschallenge
+      - traefik.http.services.kruzinator-seaweedfs-master.loadbalancer.server.port=9333
+
+    #  - traefik.http.routers.kruzinator-seaweedfs-filer.rule=Host(`seaweedfs-filer.dev.kruzinator.capturemyhand.com`)
+    #  - traefik.http.routers.kruzinator-seaweedfs-filer.entrypoints=websecure
+    #  - traefik.http.routers.kruzinator-seaweedfs-filer.tls.certresolver=tlschallenge
+    #  - traefik.http.services.kruzinator-seaweedfs-filer.loadbalancer.server.port=8888  
+    #  - traefik.http.routers.kruzinator-seaweedfs-admin.rule=Host(`seaweedfs-admin.dev.kruzinator.capturemyhand.com`)
+    #  - traefik.http.routers.kruzinator-seaweedfs-admin.entrypoints=websecure
+    #  - traefik.http.routers.kruzinator-seaweedfs-admin.tls.certresolver=tlschallenge
+    #  - traefik.http.services.kruzinator-seaweedfs-admin.loadbalancer.server.port=23646
     volumes:
       - ./data/seaweedfs:/data
     networks:

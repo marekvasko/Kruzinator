@@ -19,7 +19,7 @@ target_metadata = Base.metadata
 
 
 def get_url() -> str:
-    return get_settings().database_url
+    return get_settings().postgres_url.unicode_string()
 
 
 def run_migrations_offline() -> None:

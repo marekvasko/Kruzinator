@@ -2,13 +2,22 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import asynccontextmanager
+import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .cli import _run_migrations
 from .config import get_settings
-from .routers import datapoints_router, exports_router, health_router, sessions_router, users_router
+from .routers import (
+    auth_router, 
+    datapoints_router, 
+    exports_router, 
+    health_router, 
+    rewards_router,
+    users_router,
+    well_known_router,
+)
 
 
 @asynccontextmanager
@@ -27,17 +36,19 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_allow_origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_origins=settings.cors.allow_origins,
+        allow_credentials=settings.cors.allow_credentials,
+        allow_methods=settings.cors.allow_methods,
+        allow_headers=settings.cors.allow_headers,
     )
 
     app.include_router(health_router)
+    app.include_router(auth_router)
     app.include_router(users_router)
-    app.include_router(sessions_router)
     app.include_router(datapoints_router)
+    app.include_router(rewards_router)
     app.include_router(exports_router)
+    app.include_router(well_known_router)
 
     return app
 
